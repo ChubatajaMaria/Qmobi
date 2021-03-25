@@ -1,4 +1,6 @@
 import json
+import os
+import pty
 import subprocess
 import time
 import unittest
@@ -11,10 +13,12 @@ class TestMyApp(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
-        cls.process = subprocess.Popen(["python3", "main.py"], stdout=subprocess.PIPE)
+        master, slave = pty.openpty()
+        cls.process = subprocess.Popen(["python3", "main.py"], stdout=slave)
+        stdout = os.fdopen(master)
         retries = 0
         while retries < 10:
-            result = cls.process.stdout.readline().decode().strip()
+            result = stdout.readline().strip()
             if result == 'Ready':
                 break
             else:
@@ -27,8 +31,6 @@ class TestMyApp(unittest.TestCase):
         cls.process.wait()
 
     def test_100_usd(self):
-        s = type(self).process.stdout
-        print(s)
         with urllib.request.urlopen("http://localhost:5000/?usd_amount=100") as response:
             result = json.loads(response.read())
             self.assertEqual(response.status, 200)
@@ -37,8 +39,6 @@ class TestMyApp(unittest.TestCase):
             self.assertIn('rur_amount', result)
 
     def test_errors(self):
-        s = type(self).process.stdout
-        print(s)
         with urllib.request.urlopen("http://localhost:5000/?usd_amount=string") as response:
             result = json.loads(response.read())
             self.assertDictEqual({
